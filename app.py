@@ -130,4 +130,4 @@ def index():
 # --- RUN THE APPLICATION ---
 if __name__ == '__main__':
     # debug=True enables auto-reloading when you make changes to the code
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5001) 
