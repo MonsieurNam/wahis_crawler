@@ -1,0 +1,18 @@
+[build]
+  # Thư mục chứa các tệp tĩnh (HTML, CSS) để Netlify phục vụ.
+  # Trong trường hợp của chúng ta, Flask sẽ tạo ra HTML, nhưng chúng ta vẫn cần chỉ định một thư mục.
+  publish = "static" 
+  # Lệnh Netlify sẽ chạy để cài đặt các thư viện Python.
+  command = "pip install -r requirements.txt"
+
+[functions]
+  # Thư mục chứa các serverless function.
+  directory = "netlify/functions"
+
+# Đây là phần quan trọng nhất:
+# Nó nói với Netlify rằng hãy chuyển hướng MỌI yêu cầu (/*)
+# đến function có tên là 'api' để xử lý.
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/api"
+  status = 200
