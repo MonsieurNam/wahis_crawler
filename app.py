@@ -2,124 +2,103 @@ import requests
 import json
 from flask import Flask, render_template, request
 
-# --- INITIALIZE FLASK APPLICATION ---
 app = Flask(__name__)
 
-# --- API CALL FUNCTIONS (unchanged from the previous script) ---
 BASE_HEADERS = {
     "accept": "application/json", "accept-language": "en", "clientid": "OIEwebsite",
     "content-type": "application/json", "env": "PRD", "token": "#PIPRD202006#",
-    "type": "REQUEST", "sec-ch-ua": "\"Chromium\";v=\"140\", \"Not=A?Brand\";v=\"24\", \"Microsoft Edge\";v=\"140\"",
-    "sec-ch-ua-mobile": "?0", "sec-ch-ua-platform": "\"Windows\"", "Referer": "https://wahis.woah.org/"
+    "type": "REQUEST",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+    "Referer": "https://wahis.woah.org/"
 }
 
-def get_all_countries():
-    url = "https://wahis.woah.org/api/v1/pi/country/list?language=en"
+# --- CÁC HÀM TẢI DỮ LIỆU BAN ĐẦU (Không thay đổi) ---
+def load_initial_data():
+    countries, diseases = [], []
+    print("Attempting to load countries data...")
     try:
-        response = requests.get(url, headers=BASE_HEADERS)
+        url = "https://wahis.woah.org/api/v1/pi/country/list?language=en"
+        response = requests.get(url, headers=BASE_HEADERS, timeout=15)
         response.raise_for_status()
-        # Sort the list of countries by name for easier lookup
-        return sorted(response.json(), key=lambda x: x['name'])
+        countries = sorted(response.json(), key=lambda x: x['name'])
+        print("Successfully loaded countries data.")
     except Exception as e:
-        print(f"Critical error while fetching country list: {e}")
-        return []
-
-def get_all_diseases():
-    url = "https://wahis.woah.org/api/v1/pi/disease/first-level-filters?language=en"
+        print(f"!!! CRITICAL ERROR loading countries: {e}")
+    print("Attempting to load diseases data...")
     try:
-        response = requests.get(url, headers=BASE_HEADERS)
+        url = "https://wahis.woah.org/api/v1/pi/disease/first-level-filters?language=en"
+        response = requests.get(url, headers=BASE_HEADERS, timeout=15)
         response.raise_for_status()
-        # Sort the list of diseases by name
-        return sorted(response.json(), key=lambda x: x['name'])
+        diseases = sorted(response.json(), key=lambda x: x['name'])
+        print("Successfully loaded diseases data.")
     except Exception as e:
-        print(f"Critical error while fetching disease list: {e}")
-        return []
+        print(f"!!! CRITICAL ERROR loading diseases: {e}")
+    return countries, diseases
 
-def get_filtered_events(country_id: int, disease_id: int):
+print("Server is starting, loading initial data from WAHIS...")
+COUNTRIES_CACHE, DISEASES_CACHE = load_initial_data()
+if COUNTRIES_CACHE and DISEASES_CACHE:
+    print("Initial data loaded successfully. Server is ready!")
+else:
+    print("WARNING: Failed to load some or all initial data.")
+
+# --- THAY ĐỔI 1: LÀM CHO HÀM `get_filtered_events` LINH HOẠT HƠN ---
+def get_filtered_events(country_id=None, disease_id=None):
+    """
+    Hàm này giờ có thể nhận ID hoặc không.
+    Nếu không có ID, nó sẽ tìm kiếm cho 'Tất cả'.
+    """
     url = "https://wahis.woah.org/api/v1/pi/event/filtered-list"
+    
+    # Nếu country_id được cung cấp, thêm nó vào body. Nếu không, gửi một danh sách rỗng (nghĩa là 'Tất cả')
+    countries_filter = [country_id] if country_id else []
+    diseases_filter = [disease_id] if disease_id else []
+    
     body = {
-        "eventIds": [], "reportIds": [], "countries": [country_id],
-        "firstDiseases": [disease_id], "secondDiseases": [], "typeStatuses": [],
+        "countries": countries_filter,
+        "firstDiseases": diseases_filter,
+        "eventIds": [], "reportIds": [], "secondDiseases": [], "typeStatuses": [],
         "reasons": [], "eventStatuses": [], "reportTypes": [], "reportStatuses": [],
         "eventStartDate": None, "submissionDate": None, "animalTypes": [],
         "sortColumn": "submissionDate", "sortOrder": "desc", "pageSize": 10, "pageNumber": 0
     }
-    
-    # --- DEBUG SECTION ADDED ---
-    print("\n" + "="*50)
-    print("--- Sending request to API filtered-list ---")
-    print(f"URL: {url}")
-    print(f"Headers: {json.dumps(BASE_HEADERS, indent=2)}")
-    print(f"Body (JSON format): {json.dumps(body)}")
-    
     try:
-        response = requests.post(url, headers=BASE_HEADERS, data=json.dumps(body), timeout=15) # Added timeout
-        
-        # Print response details regardless of success or failure
-        print("\n--- Response received from WAHIS server ---")
-        print(f"Status Code: {response.status_code}")
-        
-        # Attempt to print the response content as text, fallback to raw content if it fails
-        try:
-            print(f"Response Content (Text): {response.text}")
-        except Exception as e:
-            print(f"Unable to read text content, printing raw bytes: {response.content}")
-        
-        print("="*50 + "\n")
-
-        # Check if the request was successful (status code 2xx)
+        response = requests.post(url, headers=BASE_HEADERS, data=json.dumps(body), timeout=15)
         response.raise_for_status()
-        
-        # If successful, return the JSON data
         return response.json()
-
-    except requests.exceptions.HTTPError as http_err:
-        print(f"!!! Specific HTTP error: {http_err}")
-        return None
-    except requests.exceptions.RequestException as e:
-        print(f"!!! Connection or timeout error: {e}")
-        return None
-    except json.JSONDecodeError:
-        print("!!! Error: Response is not valid JSON. The website might be under maintenance or blocking requests.")
+    except Exception as e:
+        print(f"Error when fetching filtered events: {e}")
         return None
 
-# --- DATA CACHE ---
-# Load data once when the server starts to improve performance
-print("Starting server, please wait while data is being fetched from WAHIS...")
-COUNTRIES_CACHE = get_all_countries()
-DISEASES_CACHE = get_all_diseases()
-if COUNTRIES_CACHE and DISEASES_CACHE:
-    print("Data successfully loaded. Server is ready!")
-else:
-    print("WARNING: Unable to fetch data from WAHIS. The application may not function correctly.")
-
-# --- DEFINE ROUTES FOR THE WEB PAGE ---
+# --- THAY ĐỔI 2: CẬP NHẬT LOGIC CỦA ROUTE `index` ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     results = None
-    selected_country = None
-    selected_disease = None
+    selected_country = "all"  # Mặc định là 'all'
+    selected_disease = "all"  # Mặc định là 'all'
     
-    # If the user submits the form (clicks the search button)
     if request.method == 'POST':
-        try:
-            # Get IDs from the user's form selection
-            country_id = int(request.form.get('country'))
-            disease_id = int(request.form.get('disease'))
-            
-            # Save the selection to display it back in the dropdown
-            selected_country = country_id
-            selected_disease = disease_id
-            
-            print(f"Search request received - Country ID: {country_id}, Disease ID: {disease_id}")
-            # Call the API to fetch results
-            results = get_filtered_events(country_id, disease_id)
-        except (TypeError, ValueError):
-             # Handle cases where the user submits without selecting anything
-            print("Error: User did not select sufficient information.")
-            pass # Ignore and just reload the page
+        # Lấy lựa chọn của người dùng từ form
+        country_id_str = request.form.get('country')
+        disease_id_str = request.form.get('disease')
 
-    # Render the web page, passing necessary data to the HTML template
+        # Cập nhật lại lựa chọn để hiển thị trên dropdown
+        selected_country = country_id_str
+        selected_disease = disease_id_str
+        
+        # Chuyển đổi giá trị từ form sang dạng số hoặc None
+        # Nếu người dùng chọn 'all', giá trị sẽ là None
+        country_id = int(country_id_str) if country_id_str != 'all' else None
+        disease_id = int(disease_id_str) if disease_id_str != 'all' else None
+        
+        print(f"Search request received - Country: {country_id_str}, Disease: {disease_id_str}")
+        results = get_filtered_events(country_id, disease_id)
+    else:
+        # Đây là yêu cầu GET (lần đầu tải trang)
+        # Tự động tìm kiếm các sự kiện mới nhất trên toàn thế giới
+        print("Initial page load. Fetching latest events for all countries/diseases.")
+        results = get_filtered_events() # Gọi hàm không có tham số
+
     return render_template('index.html', 
                            countries=COUNTRIES_CACHE, 
                            diseases=DISEASES_CACHE,
@@ -127,7 +106,5 @@ def index():
                            selected_country=selected_country,
                            selected_disease=selected_disease)
 
-# --- RUN THE APPLICATION ---
 if __name__ == '__main__':
-    # debug=True enables auto-reloading when you make changes to the code
-    app.run(debug=True, host='0.0.0.0', port=5001) 
+    app.run(debug=True)

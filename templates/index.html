@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WAHIS Disease Information Lookup</title>
+    <title>Trình tra cứu dịch bệnh WAHIS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .result-card {
@@ -13,79 +13,76 @@
 </head>
 <body>
     <div class="container mt-4">
-        <h1 class="mb-4 text-center">WAHIS Disease Information Lookup</h1>
+        <h1 class="mb-4 text-center">Tra cứu thông tin dịch bệnh WAHIS</h1>
 
-        <!-- Form containing filters (Do not change) -->
+        <!-- Form chứa các bộ lọc -->
         <form method="POST" class="card p-3 mb-4 shadow-sm">
             <div class="row g-3 align-items-end">
+                <!-- Dropdown cho Quốc gia -->
                 <div class="col-md-5">
-                    <label for="country" class="form-label"><b>Country</b></label>
+                    <label for="country" class="form-label"><b>Quốc gia</b></label>
                     <select class="form-select" id="country" name="country" required>
-                        <option value="" disabled {% if not selected_country %}selected{% endif %}>-- Please select a country --</option>
+                        <!-- THÊM TÙY CHỌN "TẤT CẢ" -->
+                        <option value="all" {% if selected_country == 'all' %}selected{% endif %}>-- Tất cả Quốc gia --</option>
+                        
                         {% for country in countries %}
-                            <option value="{{ country.areaId }}" {% if country.areaId == selected_country %}selected{% endif %}>
+                            <!-- So sánh với chuỗi vì giá trị từ form là chuỗi -->
+                            <option value="{{ country.areaId }}" {% if country.areaId|string == selected_country %}selected{% endif %}>
                                 {{ country.name }}
                             </option>
                         {% endfor %}
                     </select>
                 </div>
+
+                <!-- Dropdown cho Bệnh -->
                 <div class="col-md-5">
-                    <label for="disease" class="form-label"><b>Disease</b></label>
+                    <label for="disease" class="form-label"><b>Bệnh</b></label>
                     <select class="form-select" id="disease" name="disease" required>
-                        <option value="" disabled {% if not selected_disease %}selected{% endif %}>-- Please select a disease --</option>
+                        <!-- THÊM TÙY CHỌN "TẤT CẢ" -->
+                        <option value="all" {% if selected_disease == 'all' %}selected{% endif %}>-- Tất cả Bệnh --</option>
+                        
                         {% for disease in diseases %}
-                            <option value="{{ disease.ids[0] }}" {% if disease.ids[0] == selected_disease %}selected{% endif %}>
+                            <option value="{{ disease.ids[0] }}" {% if disease.ids[0]|string == selected_disease %}selected{% endif %}>
                                 {{ disease.name }}
                             </option>
                         {% endfor %}
                     </select>
                 </div>
+
+                <!-- Nút Tìm kiếm -->
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">Search</button>
+                    <button type="submit" class="btn btn-primary w-100">Tìm kiếm</button>
                 </div>
             </div>
         </form>
 
-        <!-- ========================================================== -->
-        <!-- ===== ERROR FIX AREA - REPLACE THIS ENTIRE BLOCK ===== -->
-        <!-- ========================================================== -->
+        <!-- Khu vực hiển thị kết quả (giữ nguyên logic hiển thị) -->
         {% if results is not none %}
             <hr>
-            <h2 class="mt-4">Search Results</h2>
+            <h2 class="mt-4">Kết quả tìm kiếm</h2>
             
-            <!-- FIX 1: Condition should check 'results.list' or 'results.totalSize' -->
             {% if results.list and results.totalSize > 0 %}
-                <p>Found <strong>{{ results.totalSize }}</strong> matching events. Displaying the first {{ results.list | length }} results.</p>
+                <p>Tìm thấy <strong>{{ results.totalSize }}</strong> sự kiện phù hợp. Đang hiển thị {{ results.list | length }} kết quả đầu tiên.</p>
                 
-                <!-- FIX 2: Loop should iterate over 'results.list' -->
                 {% for event in results.list %}
                     <div class="card mb-3 shadow-sm result-card">
                         <div class="card-body">
-                            <!-- FIX 3: Disease key in results is 'disease', not 'firstDisease' -->
                             <h5 class="card-title text-primary">{{ event.disease }}</h5>
-                            <h6 class="card-subtitle mb-2 text-muted">Event ID: {{ event.eventId }} | Country: {{ event.country }}</h6>
+                            <h6 class="card-subtitle mb-2 text-muted">Mã sự kiện: {{ event.eventId }} | Quốc gia: {{ event.country }}</h6>
                             <p class="card-text">
-                                <strong>Report Date:</strong> {{ event.submissionDate }}<br>
-                                <strong>Reason for Report:</strong> {{ event.reason }}<br>
-                                <strong>Status:</strong> <span class="badge bg-info text-dark">{{ event.eventStatus }}</span>
+                                <strong>Ngày báo cáo:</strong> {{ event.submissionDate }}<br>
+                                <strong>Lý do báo cáo:</strong> {{ event.reason }}<br>
+                                <strong>Trạng thái:</strong> <span class="badge bg-info text-dark">{{ event.status }}</span>
                             </p>
                         </div>
                     </div>
                 {% endfor %}
             {% else %}
                 <div class="alert alert-warning" role="alert">
-                    Request successful! However, no events were found for the selected country and disease.
+                    Yêu cầu thành công! Tuy nhiên, không có sự kiện nào được tìm thấy cho các tiêu chí đã chọn.
                 </div>
             {% endif %}
-            
-            <!-- Keep this debug section for inspection -->
-            <h3 class="mt-4">Raw JSON Data Received</h3>
-            <pre><code class="bg-light p-3 d-block" style="max-height: 200px; overflow-y: auto;">{{ results | tojson(indent=4) }}</code></pre> 
-            
         {% endif %}
-        <!-- ========================================================== -->
-        <!-- =================== END OF ERROR FIX AREA ================ -->
-        <!-- ========================================================== -->
 
     </div>
 </body>
